@@ -17,15 +17,15 @@ public partial class World
 {
     [HideInInspector]
     public bool isSaving = false;
-    
+
     public async void SaveWorld()
     {
-        if(World.Instance.worldName == "")
+        if (World.Instance.worldName == "")
         {
             Debug.Log("World name is empty - not saving");
             return;
         }
-        
+
         if (isSaving)
         {
             Debug.Log("Already saving");
@@ -35,22 +35,28 @@ public partial class World
         isSaving = true;
         var stopwatch = Stopwatch.StartNew();
         var saveWatch = Stopwatch.StartNew();
-        // Create object with data to save
-        var worldSaveData = new WorldSaveData
+
+        // Create an array of ChunkSaveData from modified chunks
+        var chunkSaveDatas = worldData.chunkDataDict.Values
+            .Where(data => data.modifiedAfterSave)
+            .Select(ChunkSaveData.Serialize)
+            .ToArray();
+
+        // Create object with data to save and pass chunkSaveDatas to the constructor
+        var worldSaveData = new WorldSaveData(chunkSaveDatas)
         {
-            chunks = worldData.chunkDataDict.Values.Where(data => data.modifiedAfterSave).Select(ChunkSaveData.Serialize).ToArray(),
             worldName = worldName,
             seedOffset = mapSeedOffset
         };
         saveWatch.Stop();
         Debug.Log($"Creating local save object took {saveWatch.ElapsedMilliseconds}ms");
-        
-        Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraftUnity/saves/"+worldSaveData.worldName+"/chunks"));
-        
+
+        Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraftUnity/saves/" + worldSaveData.worldName + "/chunks"));
+
         // Save the chunks
         await Task.Run(() =>
         {
-            Parallel.ForEach(worldSaveData.chunks,new ParallelOptions() {MaxDegreeOfParallelism = 8}, chunk =>
+            Parallel.ForEach(worldSaveData.chunks, new ParallelOptions() { MaxDegreeOfParallelism = 8 }, chunk =>
             {
                 var path = GetChunkPath(worldName, chunk.position);
                 string json;
@@ -65,12 +71,12 @@ public partial class World
                 File.WriteAllText(path, json);
             });
         });
-        
+
         // Save the world data
-        var savePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraftUnity/saves/"+worldSaveData.worldName+"/world.json");
+        var savePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraftUnity/saves/" + worldSaveData.worldName + "/world.json");
 
         string worldJson;
-        
+
         if (binaryCompressSaves)
         {
             worldJson = Compress(JsonUtility.ToJson(worldSaveData));
@@ -79,12 +85,12 @@ public partial class World
         {
             worldJson = JsonUtility.ToJson(worldSaveData);
         }
-        
+
         await File.WriteAllTextAsync(savePath, worldJson);
-        
+
         // Save all the player data
-        
-        Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraftUnity/saves/"+worldSaveData.worldName+"/playerdata"));
+
+        Directory.CreateDirectory(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraftUnity/saves/" + worldSaveData.worldName + "/playerdata"));
 
         if (GameManager.Instance != null)
         {
@@ -97,6 +103,7 @@ public partial class World
         Debug.Log("Saved world in " + stopwatch.ElapsedMilliseconds + "ms");
         isSaving = false;
     }
+
 
     public void SavePlayer(WorldServer.SavePlayerMessage message)
     {

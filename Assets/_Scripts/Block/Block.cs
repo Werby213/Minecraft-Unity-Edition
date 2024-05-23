@@ -225,4 +225,62 @@ public class Block
         
         // Debug.Log($"Block {type.ToString()} updated");
     }
+
+    public void BlockDestructionParticles()
+    {
+        var particleSystemGO = new GameObject("BlockDestructionParticles");
+        particleSystemGO.transform.position = globalWorldPosition;
+        var particleSystem = particleSystemGO.AddComponent<ParticleSystem>();
+        var renderer = particleSystemGO.GetComponent<ParticleSystemRenderer>();
+        renderer.material = new Material(Shader.Find("Sprites/Default"));
+
+        var main = particleSystem.main;
+
+        main.startLifetime = 1f;
+        main.startSpeed = 1f;
+        main.startSize = 0.1f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+
+        var emission = particleSystem.emission;
+        emission.rateOverTime = 0;
+        emission.SetBursts(new ParticleSystem.Burst[] {
+            new ParticleSystem.Burst(0f, 30)
+        });
+
+        var shape = particleSystem.shape;
+        shape.shapeType = ParticleSystemShapeType.Sphere;
+        shape.radius = 0.5f;
+
+        var textureSheetAnimation = particleSystem.textureSheetAnimation;
+        textureSheetAnimation.enabled = true;
+        textureSheetAnimation.mode = ParticleSystemAnimationMode.Sprites;
+
+        // Generate the sprites from TextureData
+        if (BlockData == null)
+        {
+            Debug.LogError("BlockData is null.");
+            return;
+        }
+
+        List<Sprite> blockSprites = BlockDataManager.Instance.GenerateSpritesFromTextureData(BlockData.textureData, 4); // 4x4 grid
+
+        // Add the block sprites to the particle system
+        if (blockSprites.Count > 0)
+        {
+            foreach (var sprite in blockSprites)
+            {
+                textureSheetAnimation.AddSprite(sprite);
+            }
+        }
+        else
+        {
+            Debug.LogError("Generated block sprites list is empty.");
+        }
+
+        particleSystem.Play();
+
+        GameObject.Destroy(particleSystemGO, 2f); // Destroy the particle system after 2 seconds
+    }
+
+
 }

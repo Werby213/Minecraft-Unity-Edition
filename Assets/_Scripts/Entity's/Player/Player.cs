@@ -15,7 +15,11 @@ public class Player : BaseEntity
     public float sensitivity = 10f;
     public float checkIncrement = 0.1f;
     public float reach = 4.5f;
-    
+
+    private float sprintFOV;
+    public float sprintFOVIncrease = 12.5f;
+    public float sprintFOVSpeed = 10f;
+
     [HideInInspector]
     public Transform cam;
     private PlayerObjects objects;
@@ -38,7 +42,10 @@ public class Player : BaseEntity
     private MeshFilter[] meshFilters;
     private int blockLightLastFrame;
     private int skyLightLastFrame;
-    
+
+    private float cameraPitch; // Тангаж (вертикальное движение)
+    private float cameraYaw;   // Рыскание (горизонтальное движение)
+
     [SyncVar] 
     public string PlayerName;
     [SyncVar]
@@ -189,6 +196,7 @@ public class Player : BaseEntity
             var blockPos = targetedBlock.section.dataRef.GetGlobalBlockCoords(targetedBlock.position);
             blockPos.y += targetedBlock.section.yOffset;
             inventory.AddItem(targetedBlock.type);
+            targetedBlock.BlockDestructionParticles();
             if (networkStarted)
             {
                 NetworkClient.Send(new WorldServer.SetBlockMessage(blockPos,BlockType.Air));
@@ -390,6 +398,21 @@ public class Player : BaseEntity
     public override void Update()
     {
         base.Update();
+
+        // Получите ввод от игрока
+        float horizontalInput = Input.GetAxis("Horizontal");
+        float verticalInput = Input.GetAxis("Vertical");
+
+        // Измените углы Эйлера камеры на основе ввода
+        cameraPitch -= verticalInput * sensitivity * Time.deltaTime;
+        cameraYaw += horizontalInput * sensitivity * Time.deltaTime;
+
+        // Ограничьте вертикальное движение камеры, чтобы избежать переворачивания
+        cameraPitch = Mathf.Clamp(cameraPitch, -90f, 90f);
+
+        // Примените покачивание камеры
+        cam.localRotation = Quaternion.Euler(cameraPitch, cameraYaw, 0f);
+
         if (Application.isPlaying)
         {
             var blockLight = World.Instance.GetBlock(transform.position).GetBlockLight();
@@ -416,7 +439,9 @@ public class Player : BaseEntity
         {
             animator.SetBool(Sneaking, isCrouching);
         }
+
         DoHeadRotation();
+        ApplySprintFOV();
 
         var targetedBlock = TargetedBlock(reach, out _);
         if (targetedBlock != null)
@@ -669,4 +694,19 @@ public class Player : BaseEntity
     {
         GameManager.Instance.players.Remove(this);
     }
+
+    private void ApplySprintFOV()
+    {
+        if (isSprinting)
+        {
+            sprintFOV = Mathf.Lerp(sprintFOV, sprintFOVIncrease, Time.deltaTime * sprintFOVSpeed);
+        }
+        else
+        {
+            sprintFOV = Mathf.Lerp(sprintFOV, 0f, Time.deltaTime * sprintFOVSpeed);
+        }
+
+        cam.GetComponent<Camera>().fieldOfView = SettingsManager.instance.fov + sprintFOV;
+    }
+
 }

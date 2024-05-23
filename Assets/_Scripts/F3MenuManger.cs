@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Threading;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,6 +16,14 @@ public partial class F3MenuManger : MonoBehaviour
     public Dictionary<string, ContentSizeFitter> f3Groups = new Dictionary<string, ContentSizeFitter>();
     public Coroutine fpsCoroutine;
 
+    private Process currentProcess;
+    private long initialMemoryUsage;
+    private float cpuUsage;
+    private float ramUsage;
+
+    private Thread monitoringThread;
+    private bool monitoringActive;
+
     public void Update()
     {
         if (!CheckForDebugControls() && Input.GetKeyUp(KeyCode.F3))
@@ -25,7 +35,7 @@ public partial class F3MenuManger : MonoBehaviour
 
                 return;
             }
-            
+
 
             if (!GameManager.Instance.localPlayer.f3KeyComboUsed)
             {
@@ -41,17 +51,23 @@ public partial class F3MenuManger : MonoBehaviour
             {
                 fpsCoroutine = StartCoroutine(UpdateFps());
             }
-            
+
             // Left
             var playerPosition = GameManager.Instance.localPlayer.transform.position;
-            CreateF3Text("coords", "XYZ: " + Math.Round(playerPosition.x,3).ToString("N3").Replace(',', '.') + " / " + Math.Round(playerPosition.y,5).ToString("N5").Replace(',', '.') + " / " + Math.Round(playerPosition.z,3).ToString("N3").Replace(',', '.'));
-            CreateF3Text("block", "Block: " + Mathf.FloorToInt(playerPosition.x) +" "+ Mathf.FloorToInt(playerPosition.y) +" " + Mathf.FloorToInt(playerPosition.z));
-            CreateF3Text("chunk", "Chunk: " + Mathf.FloorToInt(playerPosition.x % 16) + " " + Mathf.FloorToInt(playerPosition.y % 16) + " " + Mathf.FloorToInt(playerPosition.z % 16) + " in " + Mathf.FloorToInt(playerPosition.x / 16) +" " + Mathf.FloorToInt(playerPosition.y / 16) +" "+ Mathf.FloorToInt(playerPosition.z / 16));
+            CreateF3Text("coords", "XYZ: " + Math.Round(playerPosition.x, 3).ToString("N3").Replace(',', '.') + " / " + Math.Round(playerPosition.y, 5).ToString("N5").Replace(',', '.') + " / " + Math.Round(playerPosition.z, 3).ToString("N3").Replace(',', '.'));
+            CreateF3Text("block", "Block: " + Mathf.FloorToInt(playerPosition.x) + " " + Mathf.FloorToInt(playerPosition.y) + " " + Mathf.FloorToInt(playerPosition.z));
+            CreateF3Text("chunk", "Chunk: " + Mathf.FloorToInt(playerPosition.x % 16) + " " + Mathf.FloorToInt(playerPosition.y % 16) + " " + Mathf.FloorToInt(playerPosition.z % 16) + " in " + Mathf.FloorToInt(playerPosition.x / 16) + " " + Mathf.FloorToInt(playerPosition.y / 16) + " " + Mathf.FloorToInt(playerPosition.z / 16));
+            var camera = Camera.main;
+            CreateF3Text("cameraRot", "Camera Rotation: " + camera.transform.rotation.eulerAngles);
+            CreateF3Text("cameraDir", "Camera Direction: " + camera.transform.forward);
 
-            
+            CreateF3Text("cpuUsage", "CPU Usage: " + cpuUsage.ToString("F1") + "%");
+            CreateF3Text("ramUsage", "RAM Usage: " + ramUsage.ToString("F1") + "MB / " + SystemInfo.systemMemorySize + "MB");
+
+
             // Right
             // CreateF3Text("fps", "FPS: " + Mathf.RoundToInt(1 / Time.deltaTime));
-            var targetedBlock = GameManager.Instance.localPlayer.TargetedBlock(20,out var frontGlobalBlockPos);
+            var targetedBlock = GameManager.Instance.localPlayer.TargetedBlock(20, out var frontGlobalBlockPos);
             if (targetedBlock != null)
             {
                 var blockPos = targetedBlock.section.dataRef.GetGlobalBlockCoords(targetedBlock.position);
@@ -67,12 +83,12 @@ public partial class F3MenuManger : MonoBehaviour
             }
             else
             {
-                CreateF3Text("Target", "",false);
-                CreateF3Text("BlockType", "",false);
-                CreateF3Text("BlockLight", "",false);
-                CreateF3Text("SkyLight", "",false);
+                CreateF3Text("Target", "", false);
+                CreateF3Text("BlockType", "", false);
+                CreateF3Text("BlockLight", "", false);
+                CreateF3Text("SkyLight", "", false);
             }
-            
+
             // foreach (var sizeFitter in f3Groups.Values)
             // {
             //     sizeFitter.enabled = false;
@@ -104,6 +120,17 @@ public partial class F3MenuManger : MonoBehaviour
         {
             CreateF3Text("fps", (int)(1 / Time.unscaledDeltaTime) + " fps");
             yield return new WaitForSeconds(1);
+        }
+    }
+
+    private void MonitorSystemUsage()
+    {
+        while (monitoringActive)
+        {
+            currentProcess.Refresh();
+            cpuUsage = (float)(currentProcess.TotalProcessorTime.TotalMilliseconds / Environment.ProcessorCount);
+            ramUsage = (currentProcess.WorkingSet64 - initialMemoryUsage) / (1024f * 1024f);
+            Thread.Sleep(1000); // Update every second
         }
     }
 }

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Threading;
 using Unity.VisualScripting;
 using UnityEngine;
 
@@ -11,6 +13,13 @@ public partial class F3MenuManger : MonoBehaviour
     {
         mainMenu = shiftF3Container.GetChild(0).gameObject;
         timeMenu = shiftF3Container.Find("time").gameObject;
+
+        currentProcess = Process.GetCurrentProcess();
+        initialMemoryUsage = currentProcess.WorkingSet64;
+
+        monitoringActive = true;
+        monitoringThread = new Thread(MonitorSystemUsage);
+        monitoringThread.Start();
     }
 
     public bool CheckForDebugControls()
