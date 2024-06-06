@@ -879,7 +879,7 @@ MonoBehaviour:
   reach: 4.5
   sprintFOVIncrease: 10
   sprintFOVSpeed: 12.5
-  cam: {fileID: 3114816152506633376}
+  cam: {fileID: 3863177932255938347}
   inventory: {fileID: -873992875956742777}
   f3KeyComboUsed: 0
   escapeMenuOpen: 0

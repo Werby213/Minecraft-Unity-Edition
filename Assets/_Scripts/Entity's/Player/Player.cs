@@ -20,8 +20,9 @@ public class Player : BaseEntity
     public float sprintFOVIncrease = 12.5f;
     public float sprintFOVSpeed = 10f;
 
+    public Camera cam;
+
     [HideInInspector]
-    public Transform cam;
     private PlayerObjects objects;
     private Animator animator;
     [HideInInspector]
@@ -67,7 +68,7 @@ public class Player : BaseEntity
         
         Cursor.lockState = CursorLockMode.Locked;
         objects = GetComponent<PlayerObjects>();
-        cam = objects.cam;
+
         inventory = GetComponent<PlayerInventory>();
         direction = objects.moveDirection;
         animator = GetComponent<Animator>();
@@ -280,7 +281,7 @@ public class Player : BaseEntity
         var step = checkIncrement;
         while (step < tReach)
         {
-            var pos = cam.position + cam.forward * step;
+            var pos = cam.transform.position + cam.transform.forward * step;
             var block = world.GetBlock(pos);
             if (block == null) return null;
             if (BlockDataManager.blockTypeDataDictionary[(int)block.type].generateCollider)
@@ -411,7 +412,7 @@ public class Player : BaseEntity
         cameraPitch = Mathf.Clamp(cameraPitch, -90f, 90f);
 
         // Примените покачивание камеры
-        cam.localRotation = Quaternion.Euler(cameraPitch, cameraYaw, 0f);
+        cam.transform.localRotation = Quaternion.Euler(cameraPitch, cameraYaw, 0f);
 
         if (Application.isPlaying)
         {
